@@ -3,7 +3,7 @@
 use bitcoin::blockdata::opcodes::All as Opcode;
 use lazy_static::lazy_static;
 use proc_macro::{TokenTree::{self, *}, TokenStream};
-use proc_macro_error::{proc_macro_error, emit_error, abort};
+use proc_macro_error::{proc_macro_error, abort, set_dummy};
 use quote::quote;
 use std::collections::HashMap;
 
@@ -22,6 +22,8 @@ lazy_static! {
 #[proc_macro]
 #[proc_macro_error]
 pub fn script(tokens: TokenStream) -> TokenStream {
+    set_dummy(quote!((::bitcoin::Script::new())));
+
     let syntax = parse(tokens);
     println!("{:?}", syntax);
 
