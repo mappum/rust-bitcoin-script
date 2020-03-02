@@ -1,7 +1,6 @@
 #![feature(proc_macro_hygiene)]
 
-use bitcoin::blockdata::opcodes::All as Opcode;
-use byteorder::{ByteOrder, LittleEndian};
+use bitcoin::blockdata::opcodes::{All as Opcode, all as opcodes};
 use lazy_static::lazy_static;
 use proc_macro::{TokenTree::{self, *}, TokenStream};
 use proc_macro_error::{proc_macro_error, abort, emit_error, set_dummy};
@@ -36,7 +35,8 @@ pub fn script(tokens: TokenStream) -> TokenStream {
 enum Syntax {
     Opcode(Opcode),
     Escape(Vec<TokenTree>),
-    Data(Vec<u8>)
+    Bytes(Vec<u8>),
+    Int(i64)
 }
 
 fn parse(tokens: TokenStream) -> Vec<Syntax> {
@@ -52,7 +52,7 @@ fn parse(tokens: TokenStream) -> Vec<Syntax> {
                 let opcode = OPCODES.get(&token_str)
                     .unwrap_or_else(|| {
                         emit_error!(token.span(), "unknown opcode");
-                        Opcode::OP_NOP
+                        &opcodes::OP_NOP
                     });
                 Syntax::Opcode(*opcode)
             },
@@ -60,8 +60,11 @@ fn parse(tokens: TokenStream) -> Vec<Syntax> {
             // '<', start of escape (parse until first '>')
             (Punct(_), "<") => parse_escape(token, &mut tokens),
 
-            // literal, push data
+            // literal, push data (int or bytes)
             (Literal(_), _) => parse_data(token),
+
+            // negative sign, parse negative int
+            (Punct(_), "-") => parse_negative_int(token, &mut tokens),
 
             // anything else is invalid 
             _ => abort!(token.span(), "unexpected token")
@@ -70,7 +73,6 @@ fn parse(tokens: TokenStream) -> Vec<Syntax> {
 
     syntax
 }
-
 
 fn parse_escape<T>(token: TokenTree, tokens: &mut T) -> Syntax
     where T: Iterator<Item=TokenTree>
@@ -95,32 +97,52 @@ fn parse_escape<T>(token: TokenTree, tokens: &mut T) -> Syntax
 }
 
 fn parse_data(token: TokenTree) -> Syntax {
-    let token_str = token.to_string();
-
-    // TODO: support negative literals
-
-    // hex strings (0x...)
-    if token_str.starts_with("0x") {
-        let hex_bytes = &token_str[2..];
-        let bytes = hex::decode(hex_bytes).unwrap_or_else(|err| {
-            emit_error!(token.span(), "invalid hex literal ({})", err);
-            vec![]
-        });
-       return Syntax::Data(bytes);
+    if token.to_string().starts_with("0x") {
+       parse_bytes(token)
+    } else {
+       parse_int(token, false)
     }
+}
 
-    let n: u32 = token_str.parse().unwrap_or_else(|err| {
-        emit_error!(token.span(), "invalid decimal literal ({})", err);
+fn parse_bytes(token: TokenTree) -> Syntax {
+    let hex_bytes = &token.to_string()[2..];
+    let bytes = hex::decode(hex_bytes).unwrap_or_else(|err| {
+        emit_error!(token.span(), "invalid hex literal ({})", err);
+        vec![]
+    });
+    Syntax::Bytes(bytes)
+}
+
+fn parse_int(token: TokenTree, negative: bool) -> Syntax {
+    let token_str = token.to_string();
+    let n: i64 = token_str.parse().unwrap_or_else(|err| {
+        emit_error!(token.span(), "invalid number literal ({})", err);
         0
     });
+    let n = if negative { n * -1 } else { n };
+    Syntax::Int(n)
+}
 
-    let mut bytes = vec![0; 4];
-    LittleEndian::write_u32(&mut bytes, n);
+fn parse_negative_int<T>(token: TokenTree, tokens: &mut T) -> Syntax
+    where T: Iterator<Item=TokenTree>
+{
+    let fail = || {
+        emit_error!(
+            token.span(),
+            "expected negative sign to be followed by number literal"
+        );
+        Syntax::Int(0)
+    };
 
-    // remove most-sificant zero bytes
-    while let Some(0) = bytes.last() {
-        bytes.pop();
+    let maybe_token = tokens.next();
+
+    if let Some(token) = maybe_token {
+        if let Literal(_) = token {
+            parse_int(token, true)
+        } else {
+            fail()
+        }
+    } else {
+        fail()
     }
-
-    Syntax::Data(bytes)
 }
