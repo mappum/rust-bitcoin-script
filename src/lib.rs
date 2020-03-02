@@ -4,7 +4,7 @@ use bitcoin::blockdata::opcodes::All as Opcode;
 use byteorder::{ByteOrder, LittleEndian};
 use lazy_static::lazy_static;
 use proc_macro::{TokenTree::{self, *}, TokenStream};
-use proc_macro_error::{proc_macro_error, abort, set_dummy};
+use proc_macro_error::{proc_macro_error, abort, emit_error, set_dummy};
 use quote::quote;
 use std::collections::HashMap;
 
@@ -50,9 +50,10 @@ fn parse(tokens: TokenStream) -> Vec<Syntax> {
             // identifier, look up opcode
             (Ident(_), _) => {
                 let opcode = OPCODES.get(&token_str)
-                    .unwrap_or_else(
-                        || abort!(token.span(), "unknown opcode")
-                    );
+                    .unwrap_or_else(|| {
+                        emit_error!(token.span(), "unknown opcode");
+                        Opcode::OP_NOP
+                    });
                 Syntax::Opcode(*opcode)
             },
 
@@ -102,14 +103,17 @@ fn parse_data(token: TokenTree) -> Syntax {
     if token_str.starts_with("0x") {
         let hex_bytes = &token_str[2..];
         let bytes = hex::decode(hex_bytes).unwrap_or_else(|err| {
-            abort!(token.span(), "invalid hex literal ({})", err)
+            emit_error!(token.span(), "invalid hex literal ({})", err);
+            vec![]
         });
        return Syntax::Data(bytes);
     }
 
     let n: u32 = token_str.parse().unwrap_or_else(|err| {
-        abort!(token.span(), "invalid decimal literal ({})", err)
+        emit_error!(token.span(), "invalid decimal literal ({})", err);
+        0
     });
+
     let mut bytes = vec![0; 4];
     LittleEndian::write_u32(&mut bytes, n);
     Syntax::Data(bytes)
