@@ -116,5 +116,11 @@ fn parse_data(token: TokenTree) -> Syntax {
 
     let mut bytes = vec![0; 4];
     LittleEndian::write_u32(&mut bytes, n);
+
+    // remove most-sificant zero bytes
+    while let Some(0) = bytes.last() {
+        bytes.pop();
+    }
+
     Syntax::Data(bytes)
 }
