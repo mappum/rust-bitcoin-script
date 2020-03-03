@@ -36,10 +36,10 @@
 //! };
 //! ```
 //!
-//! **NOTE:** As of rustc 1.41, the Rust compiler prevents using procedural macros as
-//! expressions. To use this macro you'll need to be on nightly and add
-//! `#![feature(proc_macro_hygiene)]` to the root of your crate. This will be
-//! stablized in the near future, the PR can be found here:
+//! **NOTE:** As of rustc 1.41, the Rust compiler prevents using procedural
+//! macros as expressions. To use this macro you'll need to be on nightly and
+//! add `#![feature(proc_macro_hygiene)]` to the root of your crate. This will
+//! be stablized in the near future, the PR can be found here:
 //! https://github.com/rust-lang/rust/pull/68717
 //!
 //! ### Syntax
@@ -64,13 +64,11 @@
 //!
 //! #### Integer Literals
 //!
-//! Positive and negative 64-bit integer literals can be used, and will resolve
-//! to their most efficient encoding.
+//! Positive and negative 64-bit integer literals can be used, and will resolve to their most efficient encoding.
 //!
-//! For example: - `2` will resolve to `OP_PUSHNUM_2` (`0x52`) - `255` will
-//!     resolve to a length-delimited varint: `0x02ff00` (note the extra zero
-//!     byte, due to the way Bitcoin scripts use the most-significant bit to
-//!     represent the sign)`
+//! For example:
+//! -`2` will resolve to `OP_PUSHNUM_2` (`0x52`)
+//! -`255` will resolve to a length-delimited varint: `0x02ff00` (note the extra zero byte, due to the way Bitcoin scripts use the most-significant bit to represent the sign)`
 //!
 //! ```rust
 //! # #![feature(proc_macro_hygiene)]
@@ -92,9 +90,7 @@
 //!
 //! #### Escape Sequences
 //!
-//! Dynamic Rust expressions are supported inside the script, surrounded by
-//! angle brackets. In many cases, this will just be a variable identifier, but
-//! this can also be a function call or arithmetic.
+//! Dynamic Rust expressions are supported inside the script, surrounded by angle brackets. In many cases, this will just be a variable identifier, but this can also be a function call or arithmetic.
 //!
 //! Rust expressions of the following types are supported:
 //!
