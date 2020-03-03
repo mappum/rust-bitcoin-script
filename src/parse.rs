@@ -122,7 +122,6 @@ fn parse_bytes(token: TokenTree) -> (Syntax, Span) {
         emit_error!(token.span(), "invalid hex literal ({})", err);
         vec![]
     });
-    println!("BYTES! {:?}", bytes);
     (Syntax::Bytes(bytes), token.span())
 }
 
