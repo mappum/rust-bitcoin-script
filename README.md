@@ -29,7 +29,7 @@ let htlc_script = bitcoin_script! {
     OP_CHECKSIG
 };
 ```
-d
+
 **NOTE:** As of rustc 1.41, the Rust compiler prevents using procedural macros as expressions. To use this macro you'll need to be on nightly and add `#![feature(proc_macro_hygiene)]` to the root of your crate. This will be stablized in the near future, the PR can be found here: https://github.com/rust-lang/rust/pull/68717
 
 ### Syntax
