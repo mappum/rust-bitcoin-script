@@ -3,6 +3,9 @@ name = "bitcoin-script"
 version = "0.1.0"
 authors = ["Matt Bell <mappum@gmail.com>"]
 edition = "2018"
+description = "Inline Bitcoin scripts"
+license = "MIT"
+repository = "https://github.com/mappum/rust-bitcoin-script"
 
 [lib]
 proc-macro = true
