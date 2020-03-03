@@ -3,14 +3,21 @@
 use bitcoin_script::script;
 
 #[test]
-fn it_works() {
-    let sig = vec![88; 32];
+fn fixture() {
+    let foo = vec![1, 2, 3, 4];
     let script = script! {
-        OP_CHECKSIGVERIFY <sig>
         OP_HASH160
-        0x1234
+        1234
+        255
         -1
+        -255
+        0xabcd
+        <1 + 1>
+        <foo>
     };
 
-    println!("script: {:?}\nbytes: {:?}", script, script.to_bytes());
+    assert_eq!(
+        script.to_bytes(),
+        vec![169, 2, 210, 4, 2, 255, 0, 79, 2, 255, 128, 2, 171, 205, 82, 4, 1, 2, 3, 4]
+    );
 }

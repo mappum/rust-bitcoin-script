@@ -1,6 +1,6 @@
 use super::parse::Syntax;
 use bitcoin::blockdata::opcodes::All as Opcode;
-use proc_macro2::{TokenStream, TokenTree, Span, Ident, Literal};
+use proc_macro2::{TokenStream, Span, Ident};
 use quote::{quote, quote_spanned};
 
 pub fn generate(syntax: Vec<(Syntax, Span)>) -> TokenStream {
@@ -99,4 +99,131 @@ fn generate_escape(
             #expression
         )
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parse;
+    use quote::quote;
+
+    fn assert_tokens_eq(a: TokenStream, b: TokenStream) {
+        let a = format!("{}", a);
+        let b = format!("{}", b);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn generate_empty() {
+        assert_tokens_eq(
+            generate(parse(quote!())),
+            quote!(
+                ::bitcoin::blockdata::script::Builder::new()
+                    .into_script()
+            )
+        );
+    }
+
+    #[test]
+    fn generate_opcode() {
+        assert_tokens_eq(
+            generate(parse(quote!(
+                OP_CHECKSIGVERIFY
+            ))),
+            quote!(
+                ::bitcoin::blockdata::script::Builder::new()
+                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
+                    .into_script()
+            )
+        );
+    }
+
+    #[test]
+    fn generate_int() {
+        assert_tokens_eq(
+            generate(parse(quote!(
+                OP_CHECKSIGVERIFY 123
+            ))),
+            quote!(
+                ::bitcoin::blockdata::script::Builder::new()
+                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
+                    .push_int(123i64)
+                    .into_script()
+            )
+        );
+    }
+
+    #[test]
+    fn generate_hex() {
+        assert_tokens_eq(
+            generate(parse(quote!(
+                OP_CHECKSIGVERIFY 0x01020304
+            ))),
+            quote!(
+                ::bitcoin::blockdata::script::Builder::new()
+                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
+                    .push_slice(&[ 1u8, 2u8, 3u8, 4u8, ])
+                    .into_script()
+            )
+        );
+    }
+
+    #[test]
+    fn generate_escape() {
+        assert_tokens_eq(
+            generate(parse(quote!(
+                OP_CHECKSIGVERIFY <abc> OP_NOP
+            ))),
+            quote!(
+                (|builder, value| {
+                    mod __ {
+                        use ::bitcoin::blockdata::script::Builder;
+
+                        pub(super) trait Pushable {
+                            fn bitcoin_script_push(&self, builder: Builder) -> Builder;
+                        }
+
+                        impl Pushable for &[u8] {
+                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                                builder.push_slice(self)
+                            }
+                        }
+
+                        impl Pushable for Vec<u8> {
+                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                                builder.push_slice(self.as_ref())
+                            }
+                        }
+
+                        impl Pushable for i64 {
+                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                                builder.push_int(*self)
+                            }
+                        }
+
+                        impl Pushable for ::bitcoin::PublicKey {
+                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                                builder.push_key(&self)
+                            }
+                        }
+
+                        // TODO: support more types
+                    }
+
+                    use ::bitcoin::blockdata::script::Builder;
+                    fn push(builder: Builder, value: impl __::Pushable) -> Builder {
+                        value.bitcoin_script_push(builder)
+                    }
+
+                    push(builder, value)
+                })(
+                    ::bitcoin::blockdata::script::Builder::new()
+                        .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY),
+                    abc
+                )
+                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_NOP)
+                    .into_script()
+            )
+        );
+    }
 }
