@@ -11,7 +11,7 @@ use quote::quote;
 
 #[proc_macro]
 #[proc_macro_error]
-pub fn script(tokens: TokenStream) -> TokenStream {
+pub fn bitcoin_script(tokens: TokenStream) -> TokenStream {
     set_dummy(quote!((::bitcoin::Script::new())));
     generate(parse(tokens.into())).into()
 }

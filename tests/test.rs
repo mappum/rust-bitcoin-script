@@ -1,11 +1,11 @@
 #![feature(proc_macro_hygiene)]
 
-use bitcoin_script::script;
+use bitcoin_script::bitcoin_script;
 
 #[test]
 fn fixture() {
     let foo = vec![1, 2, 3, 4];
-    let script = script! {
+    let script = bitcoin_script! {
         OP_HASH160
         1234
         255
