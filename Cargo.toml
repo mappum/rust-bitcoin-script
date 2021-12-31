@@ -13,9 +13,9 @@ proc-macro = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitcoin = "0.23.0"
-quote = "1.0.2"
-proc-macro-error = "0.4.9"
+bitcoin = "0.27.1"
+quote = "1.0.14"
+proc-macro-error = "1.0.4"
 lazy_static = "1.4.0"
-hex = "0.4.2"
-proc-macro2 = "1.0.9"
+hex = "0.4.3"
+proc-macro2 = "1.0.36"
