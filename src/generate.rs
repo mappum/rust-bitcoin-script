@@ -1,12 +1,10 @@
 use super::parse::Syntax;
 use bitcoin::blockdata::opcodes::All as Opcode;
-use proc_macro2::{TokenStream, Span, Ident};
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::{quote, quote_spanned};
 
 pub fn generate(syntax: Vec<(Syntax, Span)>) -> TokenStream {
-    let mut tokens = quote!(
-        ::bitcoin::blockdata::script::Builder::new()
-    );
+    let mut tokens = quote!(::bitcoin::blockdata::script::Builder::new());
 
     for (item, span) in syntax {
         let push = match item {
@@ -47,13 +45,10 @@ fn generate_int(n: i64, span: Span) -> TokenStream {
     quote_spanned!(span=>.push_int(#n))
 }
 
-fn generate_escape(
-    builder: TokenStream,
-    expression: TokenStream,
-    span: Span
-) -> TokenStream {
+fn generate_escape(builder: TokenStream, expression: TokenStream, span: Span) -> TokenStream {
     quote_spanned!(span=>
         (|builder, value| {
+            #[allow(clippy::all)]
             mod __ {
                 use ::bitcoin::blockdata::script::Builder;
 
@@ -117,24 +112,17 @@ mod tests {
     fn generate_empty() {
         assert_tokens_eq(
             generate(parse(quote!())),
-            quote!(
-                ::bitcoin::blockdata::script::Builder::new()
-                    .into_script()
-            )
+            quote!(::bitcoin::blockdata::script::Builder::new().into_script()),
         );
     }
 
     #[test]
     fn generate_opcode() {
         assert_tokens_eq(
-            generate(parse(quote!(
-                OP_CHECKSIGVERIFY
-            ))),
-            quote!(
-                ::bitcoin::blockdata::script::Builder::new()
-                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
-                    .into_script()
-            )
+            generate(parse(quote!(OP_CHECKSIGVERIFY))),
+            quote!(::bitcoin::blockdata::script::Builder::new()
+                .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
+                .into_script()),
         );
     }
 
@@ -144,12 +132,10 @@ mod tests {
             generate(parse(quote!(
                 OP_CHECKSIGVERIFY 123
             ))),
-            quote!(
-                ::bitcoin::blockdata::script::Builder::new()
-                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
-                    .push_int(123i64)
-                    .into_script()
-            )
+            quote!(::bitcoin::blockdata::script::Builder::new()
+                .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
+                .push_int(123i64)
+                .into_script()),
         );
     }
 
@@ -159,12 +145,10 @@ mod tests {
             generate(parse(quote!(
                 OP_CHECKSIGVERIFY 0x01020304
             ))),
-            quote!(
-                ::bitcoin::blockdata::script::Builder::new()
-                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
-                    .push_slice(&[ 1u8, 2u8, 3u8, 4u8, ])
-                    .into_script()
-            )
+            quote!(::bitcoin::blockdata::script::Builder::new()
+                .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY)
+                .push_slice(&[1u8, 2u8, 3u8, 4u8,])
+                .into_script()),
         );
     }
 
@@ -174,56 +158,54 @@ mod tests {
             generate(parse(quote!(
                 OP_CHECKSIGVERIFY <abc> OP_NOP
             ))),
-            quote!(
-                (|builder, value| {
-                    mod __ {
-                        use ::bitcoin::blockdata::script::Builder;
-
-                        pub(super) trait Pushable {
-                            fn bitcoin_script_push(&self, builder: Builder) -> Builder;
-                        }
-
-                        impl Pushable for &[u8] {
-                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
-                                builder.push_slice(self)
-                            }
-                        }
-
-                        impl Pushable for Vec<u8> {
-                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
-                                builder.push_slice(self.as_ref())
-                            }
-                        }
-
-                        impl Pushable for i64 {
-                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
-                                builder.push_int(*self)
-                            }
-                        }
-
-                        impl Pushable for ::bitcoin::PublicKey {
-                            fn bitcoin_script_push(&self, builder: Builder) -> Builder {
-                                builder.push_key(&self)
-                            }
-                        }
-
-                        // TODO: support more types
-                    }
-
+            quote!((|builder, value| {
+                mod __ {
                     use ::bitcoin::blockdata::script::Builder;
-                    fn push(builder: Builder, value: impl __::Pushable) -> Builder {
-                        value.bitcoin_script_push(builder)
+
+                    pub(super) trait Pushable {
+                        fn bitcoin_script_push(&self, builder: Builder) -> Builder;
                     }
 
-                    push(builder, value)
-                })(
-                    ::bitcoin::blockdata::script::Builder::new()
-                        .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY),
-                    abc
-                )
-                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_NOP)
-                    .into_script()
+                    impl Pushable for &[u8] {
+                        fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                            builder.push_slice(self)
+                        }
+                    }
+
+                    impl Pushable for Vec<u8> {
+                        fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                            builder.push_slice(self.as_ref())
+                        }
+                    }
+
+                    impl Pushable for i64 {
+                        fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                            builder.push_int(*self)
+                        }
+                    }
+
+                    impl Pushable for ::bitcoin::PublicKey {
+                        fn bitcoin_script_push(&self, builder: Builder) -> Builder {
+                            builder.push_key(&self)
+                        }
+                    }
+
+                    // TODO: support more types
+                }
+
+                use ::bitcoin::blockdata::script::Builder;
+                fn push(builder: Builder, value: impl __::Pushable) -> Builder {
+                    value.bitcoin_script_push(builder)
+                }
+
+                push(builder, value)
+            })(
+                ::bitcoin::blockdata::script::Builder::new()
+                    .push_opcode(::bitcoin::blockdata::opcodes::all::OP_CHECKSIGVERIFY),
+                abc
             )
+            .push_opcode(::bitcoin::blockdata::opcodes::all::OP_NOP)
+            .into_script()),
         );
     }
 }
