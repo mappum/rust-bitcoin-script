@@ -159,6 +159,7 @@ mod tests {
                 OP_CHECKSIGVERIFY <abc> OP_NOP
             ))),
             quote!((|builder, value| {
+                #[allow(clippy::all)]
                 mod __ {
                     use ::bitcoin::blockdata::script::Builder;
 
