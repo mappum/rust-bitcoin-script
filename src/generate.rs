@@ -21,7 +21,7 @@ pub fn generate(syntax: Vec<(Syntax, Span)>) -> TokenStream {
     }
 
     tokens.extend(quote!(.into_script()));
-    tokens.into()
+    tokens
 }
 
 fn generate_opcode(opcode: Opcode, span: Span) -> TokenStream {

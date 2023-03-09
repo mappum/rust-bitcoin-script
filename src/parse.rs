@@ -1,6 +1,9 @@
-use bitcoin::blockdata::opcodes::{All as Opcode, all as opcodes};
+use bitcoin::blockdata::opcodes::All as Opcode;
 use lazy_static::lazy_static;
-use proc_macro2::{TokenTree::{self, *}, TokenStream, Span};
+use proc_macro2::{
+    Span, TokenStream,
+    TokenTree::{self, *},
+};
 use std::collections::HashMap;
 
 // index opcodes by identifier string
@@ -21,7 +24,7 @@ pub enum Syntax {
     Opcode(Opcode),
     Escape(TokenStream),
     Bytes(Vec<u8>),
-    Int(i64)
+    Int(i64),
 }
 
 macro_rules! emit_error {
@@ -31,6 +34,11 @@ macro_rules! emit_error {
 
         #[cfg(test)]
         panic!($($message),*);
+
+        #[allow(unreachable_code)]
+        {
+            panic!();
+        }
     }}
 }
 
@@ -55,15 +63,10 @@ pub fn parse(tokens: TokenStream) -> Vec<(Syntax, Span)> {
             // identifier, look up opcode
             (Ident(_), _) => {
                 let opcode = OPCODES.get(&token_str).unwrap_or_else(|| {
-                    emit_error!(
-                       token.span(),
-                       "unknown opcode \"{}\"",
-                       token_str
-                    );
-                    &opcodes::OP_NOP
+                    emit_error!(token.span(), "unknown opcode \"{}\"", token_str);
                 });
                 (Syntax::Opcode(*opcode), token.span())
-            },
+            }
 
             // '<', start of escape (parse until first '>')
             (Punct(_), "<") => parse_escape(token, &mut tokens),
@@ -74,8 +77,8 @@ pub fn parse(tokens: TokenStream) -> Vec<(Syntax, Span)> {
             // negative sign, parse negative int
             (Punct(_), "-") => parse_negative_int(token, &mut tokens),
 
-            // anything else is invalid 
-            _ => abort!(token.span(), "unexpected token")
+            // anything else is invalid
+            _ => abort!(token.span(), "unexpected token"),
         });
     }
 
@@ -83,19 +86,19 @@ pub fn parse(tokens: TokenStream) -> Vec<(Syntax, Span)> {
 }
 
 fn parse_escape<T>(token: TokenTree, tokens: &mut T) -> (Syntax, Span)
-    where T: Iterator<Item=TokenTree>
+where
+    T: Iterator<Item = TokenTree>,
 {
     let mut escape = TokenStream::new();
     let mut span = token.span();
 
     loop {
-        let token = tokens.next().unwrap_or_else(|| {
-            abort!(token.span(), "unterminated escape")
-        });
+        let token = tokens
+            .next()
+            .unwrap_or_else(|| abort!(token.span(), "unterminated escape"));
         let token_str = token.to_string();
 
-        span = span.join(token.span())
-            .unwrap_or(token.span());
+        span = span.join(token.span()).unwrap_or(token.span());
 
         // end of escape
         if let (Punct(_), ">") = (&token, token_str.as_ref()) {
@@ -110,9 +113,9 @@ fn parse_escape<T>(token: TokenTree, tokens: &mut T) -> (Syntax, Span)
 
 fn parse_data(token: TokenTree) -> (Syntax, Span) {
     if token.to_string().starts_with("0x") {
-       parse_bytes(token)
+        parse_bytes(token)
     } else {
-       parse_int(token, false)
+        parse_int(token, false)
     }
 }
 
@@ -120,7 +123,6 @@ fn parse_bytes(token: TokenTree) -> (Syntax, Span) {
     let hex_bytes = &token.to_string()[2..];
     let bytes = hex::decode(hex_bytes).unwrap_or_else(|err| {
         emit_error!(token.span(), "invalid hex literal ({})", err);
-        vec![]
     });
     (Syntax::Bytes(bytes), token.span())
 }
@@ -129,21 +131,22 @@ fn parse_int(token: TokenTree, negative: bool) -> (Syntax, Span) {
     let token_str = token.to_string();
     let n: i64 = token_str.parse().unwrap_or_else(|err| {
         emit_error!(token.span(), "invalid number literal ({})", err);
-        0
     });
     let n = if negative { n * -1 } else { n };
     (Syntax::Int(n), token.span())
 }
 
 fn parse_negative_int<T>(token: TokenTree, tokens: &mut T) -> (Syntax, Span)
-    where T: Iterator<Item=TokenTree>
+where
+    T: Iterator<Item = TokenTree>,
 {
     let fail = || {
+        #[allow(unused_variables)]
+        let span = token.span();
         emit_error!(
-            token.span(),
+            span,
             "expected negative sign to be followed by number literal"
         );
-        (Syntax::Int(0), token.span())
     };
 
     let maybe_token = tokens.next();
@@ -161,10 +164,10 @@ fn parse_negative_int<T>(token: TokenTree, tokens: &mut T) -> (Syntax, Span)
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use bitcoin::blockdata::opcodes::all as opcodes;
     use proc_macro2::TokenTree;
     use quote::quote;
-    use super::*;
 
     #[test]
     fn parse_empty() {
@@ -199,22 +202,19 @@ mod tests {
             panic!();
         }
     }
-    
+
     #[test]
     #[should_panic(expected = "unterminated escape")]
     fn parse_unterminated_escape() {
-        parse(quote!(OP_CHECKSIG <abc));
+        parse(quote!(OP_CHECKSIG < abc));
     }
 
     #[test]
     fn parse_escape() {
-        let syntax = parse(quote!(OP_CHECKSIG <abc>));
+        let syntax = parse(quote!(OP_CHECKSIG<abc>));
 
         if let Syntax::Escape(tokens) = &syntax[1].0 {
-            let tokens = tokens
-                .clone()
-                .into_iter()
-                .collect::<Vec<TokenTree>>();
+            let tokens = tokens.clone().into_iter().collect::<Vec<TokenTree>>();
 
             assert_eq!(tokens.len(), 1);
             if let TokenTree::Ident(_) = tokens[0] {
@@ -244,7 +244,6 @@ mod tests {
         }
     }
 
-
     #[test]
     #[should_panic(expected = "expected negative sign to be followed by number literal")]
     fn parse_invalid_negative_sign() {
@@ -253,7 +252,7 @@ mod tests {
 
     #[test]
     fn parse_negative_int() {
-        let syntax = parse(quote!(OP_CHECKSIG -1234));
+        let syntax = parse(quote!(OP_CHECKSIG - 1234));
 
         if let Syntax::Int(n) = syntax[1].0 {
             assert_eq!(n, -1234i64);
@@ -273,7 +272,7 @@ mod tests {
         let syntax = parse(quote!(OP_CHECKSIG 0x1234));
 
         if let Syntax::Bytes(bytes) = &syntax[1].0 {
-            assert_eq!(bytes, &vec![ 0x12, 0x34 ]);
+            assert_eq!(bytes, &vec![0x12, 0x34]);
         } else {
             panic!()
         }
